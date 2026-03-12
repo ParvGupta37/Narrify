@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Narrify — Create a Story</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">Narrify</a>
+  <a href="index.html" class="nav-link">← Library</a>
+</nav>
+
+<div class="page" id="main-page">
+
+  <!-- Mode picker -->
+  <div id="mode-select">
+    <div class="page-eyebrow">New Story</div>
+    <h1 class="page-title">Create a Story</h1>
+    <p class="page-sub">How would you like to get started?</p>
+    <div class="mode-grid">
+      <div class="mode-card" onclick="pickMode('guided')">
+        <div class="mode-icon">✍️</div>
+        <h3>Build it here</h3>
+        <p>Fill in a simple form, step by step. No technical knowledge needed.</p>
+      </div>
+      <div class="mode-card" onclick="pickMode('upload')">
+        <div class="mode-icon">📂</div>
+        <h3>Upload a file</h3>
+        <p>Already have a story saved as a JSON file? Upload it directly.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ GUIDED BUILDER ═══════════════════════════════════ -->
+  <div id="panel-guided" style="display:none">
+
+    <div class="wizard-bar">
+      <span class="wstep active" id="ws1">1 · Basics</span>
+      <div class="wstep-line" id="wl1"></div>
+      <span class="wstep" id="ws2">2 · Trackers</span>
+      <div class="wstep-line" id="wl2"></div>
+      <span class="wstep" id="ws3">3 · Scenes</span>
+      <div class="wstep-line" id="wl3"></div>
+      <span class="wstep" id="ws4">4 · Review</span>
+    </div>
+
+    <!-- Step 1: Basics -->
+    <div id="gstep-1">
+      <div class="section-box">
+        <h3>What is your story called?</h3>
+        <div class="section-hint">Give it a title and a short description.</div>
+        <div class="form-group"><label>Title</label>
+          <input type="text" id="g-title" placeholder="e.g. The Haunted Lighthouse" /></div>
+        <div class="form-group"><label>Description</label>
+          <input type="text" id="g-desc" placeholder="e.g. A storm-stranded sailor discovers a dark secret." /></div>
+      </div>
+      <div class="step-nav">
+        <button class="btn btn-outline" onclick="pickMode(null)">← Back</button>
+        <button class="btn btn-primary" onclick="goGStep(2)">Next: Trackers →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Trackers -->
+    <div id="gstep-2" style="display:none">
+      <div class="section-box">
+        <h3>Should the story remember things?
+          <span class="help-tip" data-tip="Trackers are like the story's memory. E.g. 'Does the player have the key?' or 'How brave are they?'. Choices can be hidden or shown based on these.">?</span>
+        </h3>
+        <div class="section-hint">
+          <strong>Trackers</strong> let you create conditional paths. Completely optional — skip this if your story is purely choice-based.<br><br>
+          Quick examples:
+        </div>
+        <div style="margin-bottom:1rem">
+          <button class="pill" onclick="addTrackerEx('has_key','false','bool')">Has a key? (Yes/No)</button>
+          <button class="pill" onclick="addTrackerEx('courage','0','number')">Courage (Number)</button>
+          <button class="pill" onclick="addTrackerEx('clues_found','0','number')">Clues found (Number)</button>
+          <button class="pill" onclick="addTrackerEx('trust','0','number')">Trust (Number)</button>
+          <button class="pill" onclick="addTrackerEx('talked_to_elder','false','bool')">Talked to elder? (Yes/No)</button>
+        </div>
+        <div id="tracker-list"></div>
+        <button class="btn btn-outline" onclick="addTracker()" style="font-size:0.8rem">+ Add Tracker</button>
+      </div>
+      <div class="step-nav">
+        <button class="btn btn-outline" onclick="goGStep(1)">← Back</button>
+        <button class="btn btn-primary" onclick="goGStep(3)">Next: Scenes →</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Scenes -->
+    <div id="gstep-3" style="display:none">
+      <div class="section-box">
+        <h3>Build your scenes
+          <span class="help-tip" data-tip="A scene is a paragraph the player reads. Each scene ends with choices that lead to other scenes — that's how your story branches.">?</span>
+        </h3>
+        <div class="section-hint">Each <strong>scene</strong> is a moment in your story. Add choices at the end of each one to create branching paths.</div>
+        <div id="scenes-list"></div>
+        <button class="btn btn-outline" onclick="addScene()" style="font-size:0.8rem">+ Add Scene</button>
+      </div>
+      <div class="section-box">
+        <h3>Which scene opens the story?</h3>
+        <div class="section-hint">This is the very first thing the player reads.</div>
+        <div class="form-group">
+          <select id="g-start-scene"><option value="">— add scenes above first —</option></select>
+        </div>
+      </div>
+      <div class="step-nav">
+        <button class="btn btn-outline" onclick="goGStep(2)">← Back</button>
+        <button class="btn btn-primary" onclick="goGStep(4)">Next: Review →</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Review -->
+    <div id="gstep-4" style="display:none">
+      <div class="section-box">
+        <h3>Review your story</h3>
+        <div class="section-hint">Everything look right? Hit Publish to add it to your library.</div>
+        <div id="review-content"></div>
+      </div>
+      <div class="step-nav">
+        <button class="btn btn-outline" onclick="goGStep(3)">← Back</button>
+        <button class="btn btn-success" onclick="submitGuided()">Publish Story ✓</button>
+      </div>
+    </div>
+  </div><!-- end guided -->
+
+  <!-- ═══ FILE UPLOAD ══════════════════════════════════════ -->
+  <div id="panel-upload" style="display:none">
+    <div class="page-eyebrow">Upload</div>
+    <h1 class="page-title" style="font-size:2rem;margin-bottom:0.4rem">Upload a Story File</h1>
+    <p class="page-sub">Drag and drop a <code style="background:var(--warm);padding:0.1rem 0.4rem;border-radius:3px">.json</code> story file, or click to browse.</p>
+
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <div class="dz-icon">📄</div>
+      <p><strong>Click to choose a .json file</strong><br>or drag and drop it here</p>
+    </div>
+    <input type="file" id="file-input" accept=".json" style="display:none" onchange="handleFile(event)" />
+    <div id="file-preview"></div>
+    <div id="file-import-row" style="display:none;margin-top:1rem">
+      <button class="btn btn-primary" onclick="importFromFile()">Import Story →</button>
+    </div>
+    <div style="margin-top:1.5rem">
+      <button class="btn btn-outline" onclick="pickMode(null)">← Back</button>
+    </div>
+  </div>
+
+</div><!-- end main-page -->
+
+<!-- Success screen -->
+<div id="success-screen" style="display:none">
+  <div class="page">
+    <div class="card success-wrap">
+      <p style="font-size:2.5rem;margin-bottom:0.75rem">🎉</p>
+      <h2 id="success-title"></h2>
+      <p>Your story is ready to play.</p>
+      <div class="success-actions">
+        <a id="success-play" class="btn btn-primary" href="#">Play it now →</a>
+        <a class="btn btn-outline" href="index.html">Go to Library</a>
+        <button class="btn btn-ghost" onclick="resetAll()">Create Another</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = "http://127.0.0.1:5000";
+
+// ── State
+let trackers = [], scenes = [], trackerCount = 0, sceneCount = 0;
+let choiceCounters = {};
+
+// ── Mode picker
+function pickMode(mode) {
+  document.getElementById("mode-select").style.display  = mode ? "none" : "block";
+  document.getElementById("panel-guided").style.display = mode === "guided" ? "block" : "none";
+  document.getElementById("panel-upload").style.display = mode === "upload" ? "block" : "none";
+}
+
+// ── Guided step nav
+function goGStep(n) {
+  [1,2,3,4].forEach(i => {
+    document.getElementById(`gstep-${i}`).style.display = i === n ? "block" : "none";
+    const ws = document.getElementById(`ws${i}`);
+    ws.classList.remove("active","done");
+    if (i < n) { ws.classList.add("done"); }
+    else if (i === n) { ws.classList.add("active"); }
+    if (i < 4) {
+      const wl = document.getElementById(`wl${i}`);
+      wl.classList.toggle("done", i < n);
+    }
+  });
+  if (n === 4) buildReview();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// ── Trackers
+function addTracker(name="", def="0", type="number") {
+  trackerCount++;
+  const id = `t${trackerCount}`;
+  trackers.push({ id, name, default: def, type });
+  renderTrackers();
+}
+function addTrackerEx(name, def, type) {
+  if (trackers.find(t => t.name === name)) return;
+  addTracker(name, def, type);
+}
+function renderTrackers() {
+  document.getElementById("tracker-list").innerHTML = trackers.map(t => `
+    <div class="tracker-row" id="${t.id}">
+      <div class="tracker-field">
+        <label>Name</label>
+        <input type="text" value="${t.name}" placeholder="e.g. courage"
+          onchange="updateTracker('${t.id}','name',this.value)" />
+      </div>
+      <div class="tracker-field">
+        <label>Type</label>
+        <select onchange="updateTracker('${t.id}','type',this.value)">
+          <option value="number" ${t.type==="number"?"selected":""}>Number</option>
+          <option value="bool"   ${t.type==="bool"?"selected":""}>Yes / No</option>
+        </select>
+      </div>
+      <div class="tracker-field">
+        <label>Starts as</label>
+        ${t.type === "bool"
+          ? `<select onchange="updateTracker('${t.id}','default',this.value)">
+               <option value="false" ${t.default==="false"?"selected":""}>No</option>
+               <option value="true"  ${t.default==="true"?"selected":""}>Yes</option>
+             </select>`
+          : `<input type="number" value="${t.default}" onchange="updateTracker('${t.id}','default',this.value)" />`
+        }
+      </div>
+      <div style="align-self:flex-end">
+        <button class="btn btn-danger" onclick="removeTracker('${t.id}')">✕</button>
+      </div>
+    </div>`).join("");
+}
+function updateTracker(id, field, val) {
+  const t = trackers.find(x => x.id === id);
+  if (t) { t[field] = val; if (field === "type") renderTrackers(); }
+}
+function removeTracker(id) {
+  trackers = trackers.filter(t => t.id !== id);
+  renderTrackers();
+}
+
+// ── Scenes
+function addScene() {
+  sceneCount++;
+  const key = `scene_${sceneCount}`;
+  scenes.push({ id: sceneCount, key, label: `Scene ${sceneCount}` });
+  renderScenes();
+  updateStartDropdown();
+}
+function removeScene(id) {
+  scenes = scenes.filter(s => s.id !== id);
+  document.getElementById(`scard-${id}`)?.remove();
+  updateStartDropdown();
+}
+function updateStartDropdown() {
+  const sel = document.getElementById("g-start-scene");
+  sel.innerHTML = scenes.length
+    ? scenes.map(s => `<option value="${s.key}">${s.label}</option>`).join("")
+    : `<option value="">— add scenes first —</option>`;
+}
+function renderScenes() {
+  const list = document.getElementById("scenes-list");
+  if (!scenes.length) { list.innerHTML = ""; return; }
+  // Only append the new last scene card
+  const s = scenes[scenes.length - 1];
+  const sceneOpts = scenes.map(s2 => `<option value="${s2.key}">${s2.label} (${s2.key})</option>`).join("");
+  const card = document.createElement("div");
+  card.className = "scene-card-builder";
+  card.id = `scard-${s.id}`;
+  card.innerHTML = `
+    <div class="scene-card-header">
+      <span class="scene-num-badge">${s.label}</span>
+      <button class="btn btn-danger" style="font-size:0.76rem" onclick="removeScene(${s.id})">Remove</button>
+    </div>
+    <div class="form-group">
+      <label>Scene text <span class="help-tip" data-tip="Write what the player reads. A paragraph or two works best.">?</span></label>
+      <textarea class="s-narrative" rows="3" placeholder="The candle flickers. Two doors stand before you…"></textarea>
+    </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:0.5rem">
+      <input type="checkbox" class="s-is-ending" id="end-${s.id}" style="width:auto" />
+      <label for="end-${s.id}" style="text-transform:none;letter-spacing:0;font-size:0.86rem;color:var(--ink);margin:0;cursor:pointer">This scene ends the story</label>
+    </div>
+    <div class="choices-container" id="cc-${s.id}"></div>
+    <button class="btn btn-ghost" style="font-size:0.78rem;padding:0.4rem 0.7rem;margin-top:0.25rem"
+      onclick="addChoice(${s.id})">+ Add a choice for this scene</button>`;
+  list.appendChild(card);
+}
+
+// ── Choices
+function addChoice(sceneId) {
+  if (!choiceCounters[sceneId]) choiceCounters[sceneId] = 0;
+  choiceCounters[sceneId]++;
+  const cid = `c-${sceneId}-${choiceCounters[sceneId]}`;
+  const sceneOpts = scenes.map(s => `<option value="${s.key}">${s.label}</option>`).join("");
+  const row = document.createElement("div");
+  row.className = "choice-row-builder"; row.id = cid;
+  row.innerHTML = `
+    <div class="choice-row-title">
+      Choice ${choiceCounters[sceneId]}
+      <button class="btn btn-danger" style="padding:0.18rem 0.5rem;font-size:0.7rem" onclick="document.getElementById('${cid}').remove()">Remove</button>
+    </div>
+    <div class="choice-grid">
+      <div class="full">
+        <label>Button text <span class="help-tip" data-tip="What the player clicks, e.g. 'Go left', 'Trust the stranger'">?</span></label>
+        <input type="text" class="c-label" placeholder="e.g. Open the door" />
+      </div>
+      <div class="full">
+        <label>Leads to scene</label>
+        <select class="c-dest">${sceneOpts}</select>
+      </div>
+    </div>
+    <div class="advanced-toggle" onclick="toggleAdv('${cid}')">
+      <span>▸</span> Conditions &amp; tracker effects
+      <span class="help-tip" data-tip="Optional. Only show this choice if a tracker meets a condition, or update trackers when picked.">?</span>
+    </div>
+    <div class="advanced-content" id="adv-${cid}">
+      <div class="choice-grid" style="margin-top:0.6rem">
+        <div class="full">
+          <label>Only show if… <span class="help-tip" data-tip="Leave blank to always show.\nExamples:\n• courage >= 2\n• has_key == true">?</span></label>
+          <input type="text" class="c-condition" placeholder="e.g. courage >= 2  (leave blank = always show)" />
+        </div>
+        <div class="full">
+          <label>When picked, update… <span class="help-tip" data-tip="Leave blank for no changes.\nExamples:\n• courage += 1\n• has_key = true\n• gold -= 5; trust += 1">?</span></label>
+          <input type="text" class="c-effects" placeholder="e.g. courage += 1  or  has_key = true" />
+        </div>
+      </div>
+    </div>`;
+  document.getElementById(`cc-${sceneId}`).appendChild(row);
+}
+
+function toggleAdv(cid) {
+  const el = document.getElementById(`adv-${cid}`);
+  const tog = el.previousElementSibling.querySelector("span");
+  const open = el.classList.toggle("open");
+  tog.textContent = open ? "▾" : "▸";
+}
+
+// ── Review
+function buildReview() {
+  const title   = document.getElementById("g-title").value.trim() || "(untitled)";
+  const desc    = document.getElementById("g-desc").value.trim()  || "No description.";
+  const startKey= document.getElementById("g-start-scene").value;
+
+  const trackerHTML = trackers.length
+    ? trackers.map(t => `<span style="background:var(--warm);border:1px solid var(--border);border-radius:3px;font-size:0.78rem;padding:0.15rem 0.55rem;margin:0.15rem;display:inline-block">${t.name} (${t.type}, starts: ${t.default})</span>`).join("")
+    : `<span style="color:var(--muted);font-size:0.84rem">None — story progresses by choices only.</span>`;
+
+  const sceneCards = document.querySelectorAll(".scene-card-builder");
+  const sceneHTML = sceneCards.length
+    ? Array.from(sceneCards).map((c, i) => {
+        const text    = c.querySelector(".s-narrative").value.trim();
+        const ending  = c.querySelector(".s-is-ending").checked;
+        const nChoice = c.querySelectorAll(".choice-row-builder").length;
+        return `<div style="border:1px solid var(--border);border-radius:4px;padding:0.75rem;margin-bottom:0.5rem;background:var(--card)">
+          <div style="font-size:0.78rem;font-weight:600;color:var(--accent);margin-bottom:0.3rem">Scene ${i+1} ${ending ? '· <span class="tag tag-end">Ending</span>' : ""}</div>
+          <div style="font-size:0.84rem;color:var(--muted)">${text ? text.slice(0,90)+(text.length>90?"…":"") : "<em>No text written</em>"}</div>
+          <div style="font-size:0.76rem;color:var(--muted);margin-top:0.3rem">${nChoice} choice(s)</div>
+        </div>`;
+      }).join("")
+    : `<p style="color:var(--accent);font-size:0.84rem">⚠ No scenes added.</p>`;
+
+  document.getElementById("review-content").innerHTML = `
+    <div style="margin-bottom:1rem">
+      <div style="font-size:0.7rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:0.25rem">Title</div>
+      <div style="font-family:var(--font-serif);font-size:1.1rem;font-weight:700">${title}</div>
+      <div style="font-size:0.84rem;color:var(--muted);margin-top:0.2rem">${desc}</div>
+    </div>
+    <div style="margin-bottom:1rem">
+      <div style="font-size:0.7rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:0.4rem">Trackers</div>
+      ${trackerHTML}
+    </div>
+    <div style="margin-bottom:0.75rem">
+      <div style="font-size:0.7rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:0.4rem">Scenes (${sceneCards.length})</div>
+      ${sceneHTML}
+    </div>
+    <div>
+      <div style="font-size:0.7rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:0.25rem">Opens on</div>
+      <div style="font-size:0.84rem">${startKey || "<span style='color:var(--accent)'>Not set — go back and choose</span>"}</div>
+    </div>`;
+}
+
+// ── Collect & submit
+function collectPayload() {
+  const title = document.getElementById("g-title").value.trim();
+  if (!title) throw new Error("Please enter a story title in Step 1.");
+  const variables = trackers.map(t => ({ name: t.name.trim().replace(/\s+/g,"_"), default_value: t.default, type: t.type })).filter(v => v.name);
+  const cards = document.querySelectorAll(".scene-card-builder");
+  if (!cards.length) throw new Error("Please add at least one scene.");
+  const scenesOut = [];
+  let i = 0;
+  for (const card of cards) {
+    const narrative = card.querySelector(".s-narrative").value.trim();
+    if (!narrative) throw new Error(`Scene ${i+1} has no text.`);
+    const is_ending = card.querySelector(".s-is-ending").checked;
+    const key = scenes[i]?.key || `scene_${i+1}`;
+    const choices = [];
+    card.querySelectorAll(".choice-row-builder").forEach(r => {
+      const label = r.querySelector(".c-label").value.trim();
+      const dest  = r.querySelector(".c-dest").value;
+      const cond  = r.querySelector(".c-condition").value.trim();
+      const fx    = r.querySelector(".c-effects").value.trim();
+      if (label && dest) choices.push({ label, next_scene_key: dest, condition: cond, effects: fx });
+    });
+    scenesOut.push({ scene_key: key, narrative, is_ending, choices });
+    i++;
+  }
+  return {
+    title, description: document.getElementById("g-desc").value.trim(),
+    start_scene_key: document.getElementById("g-start-scene").value,
+    variables, scenes: scenesOut
+  };
+}
+
+async function submitGuided() {
+  try { await sendImport(collectPayload()); }
+  catch(e) { alert(e.message); }
+}
+
+// ── File upload
+let uploadedData = null;
+const dz = document.getElementById("drop-zone");
+dz.addEventListener("dragover",  e => { e.preventDefault(); dz.classList.add("drag-over"); });
+dz.addEventListener("dragleave", ()  => dz.classList.remove("drag-over"));
+dz.addEventListener("drop", e => { e.preventDefault(); dz.classList.remove("drag-over"); if (e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]); });
+
+function handleFile(ev) { if (ev.target.files[0]) readFile(ev.target.files[0]); }
+
+function readFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      uploadedData = JSON.parse(e.target.result);
+      const vc = (uploadedData.variables||[]).length;
+      document.getElementById("file-preview").innerHTML = `
+        <div class="preview-box">
+          <h3>${uploadedData.title || "Untitled"}</h3>
+          <p style="color:var(--muted);font-size:0.84rem;margin-bottom:0.6rem">${uploadedData.description||"No description."}</p>
+          <div style="display:flex;gap:1.25rem;font-size:0.79rem;color:var(--muted)">
+            <span>📖 ${(uploadedData.scenes||[]).length} scenes</span>
+            <span>🔀 ${(uploadedData.scenes||[]).reduce((n,s)=>n+(s.choices||[]).length,0)} choices</span>
+            ${vc > 0 ? `<span>⚙ ${vc} tracker${vc>1?"s":""}</span>` : ""}
+          </div>
+        </div>`;
+      document.getElementById("file-import-row").style.display = "block";
+      dz.querySelector("p").innerHTML = `<strong>${file.name}</strong> — ready to import`;
+    } catch(err) {
+      document.getElementById("file-preview").innerHTML =
+        `<div class="alert alert-error">Could not read file: ${err.message}</div>`;
+    }
+  };
+  reader.readAsText(file);
+}
+
+async function importFromFile() {
+  if (!uploadedData) return;
+  await sendImport(uploadedData);
+}
+
+// ── Send to backend
+async function sendImport(payload) {
+  const res = await fetch(`${API}/stories/import`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  const result = await res.json();
+  if (!res.ok) return alert("Import failed: " + (result.error || "Unknown error"));
+  document.getElementById("main-page").style.display = "none";
+  document.getElementById("success-screen").style.display = "block";
+  document.getElementById("success-title").textContent = `"${result.title}" is ready!`;
+  document.getElementById("success-play").href = `player.html?story=${result.id}`;
+}
+
+function resetAll() {
+  document.getElementById("main-page").style.display = "block";
+  document.getElementById("success-screen").style.display = "none";
+  trackers = []; scenes = []; trackerCount = sceneCount = 0; choiceCounters = {};
+  document.getElementById("g-title").value = "";
+  document.getElementById("g-desc").value  = "";
+  document.getElementById("tracker-list").innerHTML = "";
+  document.getElementById("scenes-list").innerHTML  = "";
+  pickMode(null);
+  goGStep(1);
+}
+</script>
+</body>
+</html>

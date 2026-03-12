@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Narrify — Story Editor</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">Narrify</a>
+  <a href="index.html" class="nav-link">← Library</a>
+</nav>
+
+<div class="page">
+  <div class="page-eyebrow">Story Editor</div>
+  <h1 class="page-title">Build your story.</h1>
+  <p class="page-sub">Create scenes, link them with choices, set where the story begins.</p>
+
+  <div class="steps-indicator">
+    <div class="step-dot done" id="dot-1"></div>
+    <div class="step-dot" id="dot-2"></div>
+    <div class="step-dot" id="dot-3"></div>
+    <div class="step-dot" id="dot-4"></div>
+  </div>
+
+  <!-- Step 1 -->
+  <div class="step active" id="step-1">
+    <div class="card">
+      <h2 style="font-family:var(--font-serif);font-size:1.2rem;font-weight:700;margin-bottom:1.4rem">Step 1 — Story Details</h2>
+      <div class="form-group">
+        <label>Title</label>
+        <input type="text" id="story-title" placeholder="e.g. The Lost Kingdom" />
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea id="story-desc" rows="3" placeholder="What is this story about?"></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="createStory()">Create Story →</button>
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="step" id="step-2">
+    <div class="card" style="margin-bottom:1rem">
+      <h2 style="font-family:var(--font-serif);font-size:1.2rem;font-weight:700;margin-bottom:1.4rem">Step 2 — Add Scenes</h2>
+      <div class="form-group">
+        <label>Scene text</label>
+        <textarea id="scene-text" rows="4" placeholder="Write what the player reads in this scene…"></textarea>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:0.5rem">
+        <input type="checkbox" id="is-ending" style="width:auto" />
+        <label for="is-ending" style="text-transform:none;letter-spacing:0;font-size:0.88rem;color:var(--ink);margin:0;cursor:pointer">This is an ending scene (no choices after this)</label>
+      </div>
+      <button class="btn btn-primary" onclick="addScene()">Add Scene</button>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <h2 style="font-family:var(--font-serif);font-size:1rem;font-weight:700">Scenes Added</h2>
+        <span id="scene-count" style="color:var(--muted);font-size:0.82rem">0 scenes</span>
+      </div>
+      <div id="scene-list"><div class="empty" style="padding:1.5rem 0"><p>No scenes yet.</p></div></div>
+      <hr />
+      <button class="btn btn-outline" onclick="goToStep(3)">Next: Add Choices →</button>
+    </div>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="step" id="step-3">
+    <div class="card" style="margin-bottom:1rem">
+      <h2 style="font-family:var(--font-serif);font-size:1.2rem;font-weight:700;margin-bottom:0.5rem">Step 3 — Link Scenes with Choices</h2>
+      <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem">For each scene, add the choices a player can make — and where each one leads.</p>
+      <div class="form-group">
+        <label>Scene to edit</label>
+        <select id="choice-source-scene" onchange="renderChoiceOptions()"></select>
+      </div>
+      <div id="choices-for-scene"></div>
+      <button class="btn btn-outline" onclick="addChoiceRow()" style="margin-bottom:1rem;font-size:0.8rem">+ Add Choice</button><br/>
+      <button class="btn btn-primary" onclick="saveChoices()">Save Choices for This Scene</button>
+    </div>
+    <div class="card">
+      <button class="btn btn-outline" onclick="goToStep(4)">Next: Set Start Scene →</button>
+    </div>
+  </div>
+
+  <!-- Step 4 -->
+  <div class="step" id="step-4">
+    <div class="card">
+      <h2 style="font-family:var(--font-serif);font-size:1.2rem;font-weight:700;margin-bottom:0.5rem">Step 4 — Opening Scene</h2>
+      <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem">Which scene does the player see first?</p>
+      <div class="form-group">
+        <label>Starting Scene</label>
+        <select id="start-scene-select"></select>
+      </div>
+      <button class="btn btn-success" onclick="setStartScene()">Publish Story ✓</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = "http://127.0.0.1:5000";
+  let currentStoryId = null;
+  let scenes = [];
+
+  function goToStep(n) {
+    document.querySelectorAll(".step").forEach(s => s.classList.remove("active"));
+    document.getElementById(`step-${n}`).classList.add("active");
+    for (let i = 1; i <= 4; i++)
+      document.getElementById(`dot-${i}`).classList.toggle("done", i <= n);
+    if (n === 3) populateChoiceEditor();
+    if (n === 4) populateStartSelector();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function createStory() {
+    const title = document.getElementById("story-title").value.trim();
+    if (!title) return alert("Please enter a story title.");
+    const res = await fetch(`${API}/stories`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, description: document.getElementById("story-desc").value.trim() })
+    });
+    const data = await res.json();
+    currentStoryId = data.id;
+    goToStep(2);
+  }
+
+  async function addScene() {
+    const text = document.getElementById("scene-text").value.trim();
+    const isEnding = document.getElementById("is-ending").checked ? 1 : 0;
+    if (!text) return alert("Please write the scene text.");
+    const res = await fetch(`${API}/scenes`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ story_id: currentStoryId, narrative: text, is_ending: isEnding })
+    });
+    const data = await res.json();
+    scenes.push({ id: data.id, narrative: text, is_ending: isEnding });
+    document.getElementById("scene-text").value = "";
+    document.getElementById("is-ending").checked = false;
+    renderSceneList();
+  }
+
+  function renderSceneList() {
+    const c = document.getElementById("scene-list");
+    document.getElementById("scene-count").textContent = `${scenes.length} scene${scenes.length !== 1 ? "s" : ""}`;
+    if (!scenes.length) { c.innerHTML = `<div class="empty" style="padding:1.5rem 0"><p>No scenes yet.</p></div>`; return; }
+    c.innerHTML = scenes.map((s, i) => `
+      <div class="scene-item">
+        <p><strong style="color:var(--ink)">Scene ${i+1}:</strong> ${s.narrative.slice(0,80)}${s.narrative.length>80?"…":""}</p>
+        ${s.is_ending ? '<span class="tag tag-end">Ending</span>' : ""}
+      </div>`).join("");
+  }
+
+  function populateChoiceEditor() {
+    const sel = document.getElementById("choice-source-scene");
+    sel.innerHTML = scenes.filter(s => !s.is_ending).map((s, i) =>
+      `<option value="${s.id}">Scene ${scenes.indexOf(s)+1}: ${s.narrative.slice(0,50)}…</option>`
+    ).join("");
+    renderChoiceOptions();
+  }
+
+  function renderChoiceOptions() {
+    document.getElementById("choices-for-scene").innerHTML = "";
+    addChoiceRow();
+  }
+
+  function addChoiceRow() {
+    const opts = scenes.map((s,i) => `<option value="${s.id}">Scene ${i+1}: ${s.narrative.slice(0,40)}…</option>`).join("");
+    const row = document.createElement("div");
+    row.className = "choice-row";
+    row.innerHTML = `
+      <input type="text" placeholder="Choice label (e.g. Open the door)" class="choice-label" />
+      <select class="choice-dest">${opts}</select>
+      <button class="btn btn-danger" onclick="this.parentElement.remove()">✕</button>`;
+    document.getElementById("choices-for-scene").appendChild(row);
+  }
+
+  async function saveChoices() {
+    const sourceId = document.getElementById("choice-source-scene").value;
+    for (const row of document.querySelectorAll(".choice-row")) {
+      const label  = row.querySelector(".choice-label").value.trim();
+      const nextId = row.querySelector(".choice-dest").value;
+      if (!label) continue;
+      await fetch(`${API}/choices`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scene_id: parseInt(sourceId), label, next_scene_id: parseInt(nextId) })
+      });
+    }
+    alert("Choices saved!");
+  }
+
+  function populateStartSelector() {
+    document.getElementById("start-scene-select").innerHTML = scenes.map((s, i) =>
+      `<option value="${s.id}">Scene ${i+1}: ${s.narrative.slice(0,60)}…</option>`
+    ).join("");
+  }
+
+  async function setStartScene() {
+    const sceneId = document.getElementById("start-scene-select").value;
+    await fetch(`${API}/stories/${currentStoryId}/set_start`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scene_id: parseInt(sceneId) })
+    });
+    alert("Story published!");
+    window.location.href = "index.html";
+  }
+</script>
+</body>
+</html>

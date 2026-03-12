@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Narrify — Story Library</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">Narrify</a>
+  <a href="upload.html" class="nav-link">Upload Story</a>
+  <a href="editor.html" class="nav-link">Story Editor</a>
+</nav>
+
+<div class="page">
+  <div class="library-header">
+    <div>
+      <div class="page-eyebrow">Story Library</div>
+      <h1 class="page-title">Choose your story.</h1>
+      <p class="page-sub">Pick a story and let the choices unfold.</p>
+    </div>
+    <a class="btn btn-primary" href="upload.html">+ Upload Story</a>
+  </div>
+
+  <div id="story-list">
+    <div class="spinner">Loading stories…</div>
+  </div>
+</div>
+
+<script>
+  const API = "http://127.0.0.1:5000";
+
+  async function loadStories() {
+    const container = document.getElementById("story-list");
+    let stories;
+    try {
+      const res = await fetch(`${API}/stories`);
+      stories = await res.json();
+    } catch (e) {
+      container.innerHTML = `
+        <div class="card" style="text-align:center;padding:2.5rem">
+          <p style="font-size:1.8rem;margin-bottom:0.75rem">⚠</p>
+          <h3 style="font-family:var(--font-serif);margin-bottom:0.5rem">Cannot reach the server</h3>
+          <p style="color:var(--muted);font-size:0.88rem;margin-bottom:1.25rem">Make sure Flask is running. Open your terminal and run:</p>
+          <code style="display:block;background:var(--ink);color:var(--parchment);padding:0.9rem 1.25rem;border-radius:6px;font-size:0.83rem;text-align:left;margin-bottom:1.25rem;line-height:1.8">
+            cd backend<br>pip install flask flask-cors<br>python app.py
+          </code>
+          <p style="color:var(--muted);font-size:0.82rem;margin-bottom:1.25rem">Then refresh this page.</p>
+          <button class="btn btn-primary" onclick="loadStories()">Retry</button>
+        </div>`;
+      return;
+    }
+
+    if (!stories.length) {
+      container.innerHTML = `
+        <div class="empty">
+          <h3>No stories yet</h3>
+          <p style="margin-top:0.4rem">
+            <a href="upload.html" style="color:var(--accent)">Upload a story</a> or use the
+            <a href="editor.html" style="color:var(--accent)">Story Editor</a>.
+          </p>
+        </div>`;
+      return;
+    }
+
+    // Fetch variable counts
+    const varCounts = await Promise.all(
+      stories.map(s =>
+        fetch(`${API}/stories/${s.id}/variables`)
+          .then(r => r.json())
+          .then(v => v.length)
+          .catch(() => 0)
+      )
+    );
+
+    const grid = document.createElement("div");
+    grid.className = "story-grid";
+
+    stories.forEach((s, i) => {
+      const genreMatch = s.description ? s.description.match(/^([^·]+)·/) : null;
+      const genre    = genreMatch ? genreMatch[1].trim() : "";
+      const cleanDesc = s.description ? s.description.replace(/^[^·]+·\s*/, "") : "No description.";
+      const vc = varCounts[i];
+
+      const card = document.createElement("div");
+      card.className = "story-card";
+      card.id = `story-card-${s.id}`;
+      card.innerHTML = `
+        <div class="story-card-body">
+          ${genre ? `<div class="story-genre">${genre}</div>` : ""}
+          <h3>${s.title}</h3>
+          <p>${cleanDesc}</p>
+          <div class="story-meta">
+            ${vc > 0 ? `<span>${vc} tracker${vc > 1 ? "s" : ""}</span>` : ""}
+            <span onclick="validateStory(${s.id}, '${s.title}')">Validate</span>
+            <span onclick="exportStory(${s.id}, '${s.title}')">Export JSON</span>
+          </div>
+        </div>
+        <div class="story-card-actions">
+          <a class="btn btn-primary" href="player.html?story=${s.id}">Play →</a>
+          <button class="btn btn-danger" title="Delete" onclick="deleteStory(${s.id}, '${s.title}')">✕</button>
+        </div>`;
+      grid.appendChild(card);
+    });
+
+    container.innerHTML = "";
+    container.appendChild(grid);
+  }
+
+  async function deleteStory(id, title) {
+    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
+    await fetch(`${API}/stories/${id}`, { method: "DELETE" });
+    const card = document.getElementById(`story-card-${id}`);
+    card?.remove();
+    if (!document.querySelector(".story-card")) loadStories();
+  }
+
+  async function validateStory(id, title) {
+    const res = await fetch(`${API}/stories/${id}/validate`);
+    const data = await res.json();
+    if (!data.issues?.length) return alert(`"${title}" looks good — no issues found.`);
+    alert(`Issues in "${title}":\n\n• ${data.issues.join("\n• ")}`);
+  }
+
+  function exportStory(id, title) {
+    const a = document.createElement("a");
+    a.href = `${API}/stories/${id}/export`;
+    a.download = `${title.replace(/\s+/g, "_")}.json`;
+    a.click();
+  }
+
+  loadStories();
+</script>
+</body>
+</html>

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Narrify — Play</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">Narrify</a>
+  <a href="index.html" class="nav-link">← Library</a>
+</nav>
+
+<div class="reading-track"><div class="reading-fill" id="reading-fill"></div></div>
+
+<div class="player-wrap">
+  <div id="state-panel" class="state-panel" style="display:none">
+    <div class="state-panel-hdr">
+      <span class="state-label">Story Trackers</span>
+      <button class="state-toggle" onclick="toggleState()">hide</button>
+    </div>
+    <div class="state-vars" id="state-vars"></div>
+  </div>
+  <div id="scene-container"><div class="spinner">Loading story…</div></div>
+</div>
+
+<script>
+  const API = "http://127.0.0.1:5000";
+  const params   = new URLSearchParams(window.location.search);
+  const storyId  = params.get("story");
+  const sKey     = "narrify_" + storyId;
+  const sKeyState= sKey + "_state";
+
+  let sceneCount   = 0;
+  let currentState = {};
+  let stateVisible = true;
+
+  if (!storyId) {
+    document.getElementById("scene-container").innerHTML =
+      `<div class="alert alert-error">No story selected. <a href="index.html">Go to library</a></div>`;
+  } else {
+    checkProgress();
+  }
+
+  async function checkProgress() {
+    const saved = sessionStorage.getItem(sKey);
+    if (saved) {
+      document.getElementById("scene-container").innerHTML = `
+        <div class="card" style="text-align:center;padding:2.25rem">
+          <p style="font-family:var(--font-serif);font-size:1.1rem;margin-bottom:1.5rem;font-style:italic">
+            You have saved progress for this story.
+          </p>
+          <div style="display:flex;gap:0.65rem;justify-content:center">
+            <button class="btn btn-primary" onclick="resumeStory(${saved})">Continue →</button>
+            <button class="btn btn-outline" onclick="freshStart()">Start Over</button>
+          </div>
+        </div>`;
+    } else {
+      freshStart();
+    }
+  }
+
+  async function freshStart() {
+    sessionStorage.removeItem(sKey);
+    sessionStorage.removeItem(sKeyState);
+    sceneCount = 0; currentState = {};
+    const res = await fetch(`${API}/stories/${storyId}/start`);
+    if (!res.ok) {
+      document.getElementById("scene-container").innerHTML =
+        `<div class="alert alert-error">Story has no starting scene. Set one in the editor.</div>`;
+      return;
+    }
+    const data = await res.json();
+    currentState = data.default_state || {};
+    const filtered = (data.choices || []).filter(c => !c.condition || evalCond(c.condition, currentState));
+    renderScene(data.scene, filtered);
+  }
+
+  async function resumeStory(sceneId) {
+    try { currentState = JSON.parse(sessionStorage.getItem(sKeyState)) || {}; } catch(e) {}
+    const res = await fetch(`${API}/scenes/${sceneId}`);
+    const data = await res.json();
+    const filtered = (data.choices || []).filter(c => !c.condition || evalCond(c.condition, currentState));
+    renderScene(data.scene, filtered);
+  }
+
+  async function selectChoice(choiceId) {
+    const res = await fetch(`${API}/choices/${choiceId}/select`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ state: currentState })
+    });
+    const data = await res.json();
+    currentState = data.state || currentState;
+    renderScene(data.scene, data.choices || []);
+  }
+
+  function renderScene(scene, choices) {
+    sceneCount++;
+    sessionStorage.setItem(sKey, scene.id);
+    sessionStorage.setItem(sKeyState, JSON.stringify(currentState));
+    renderStatePanel();
+
+    const pct = Math.min(6 + sceneCount * 12, 96);
+    document.getElementById("reading-fill").style.width = pct + "%";
+
+    const isEnding = scene.is_ending || choices.length === 0;
+    let bottomHTML;
+
+    if (isEnding) {
+      bottomHTML = `
+        <div class="ending-card">
+          <div class="ending-rule"></div>
+          <p>— The End —</p>
+          <div class="ending-actions">
+            <button class="btn btn-gold" onclick="freshStart()">Play Again</button>
+            <a class="btn btn-outline" href="index.html">Back to Library</a>
+          </div>
+        </div>`;
+    } else {
+      bottomHTML = `
+        <div class="choices">
+          ${choices.map(c => `
+            <button class="choice-btn" onclick="selectChoice(${c.id})">
+              ${c.label}
+              ${c.effects ? `<div class="choice-effect">${c.effects}</div>` : ""}
+            </button>`).join("")}
+        </div>`;
+    }
+
+    document.getElementById("scene-container").innerHTML = `
+      <div class="scene-card">
+        <div class="scene-header">
+          <span class="scene-num">Scene ${sceneCount}</span>
+          <div class="scene-divider"></div>
+          ${isEnding ? '<span class="tag tag-end">Ending</span>' : ""}
+        </div>
+        <p class="narrative">${scene.narrative}</p>
+        ${bottomHTML}
+      </div>`;
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function renderStatePanel() {
+    const panel = document.getElementById("state-panel");
+    const keys  = Object.keys(currentState);
+    if (!keys.length) { panel.style.display = "none"; return; }
+    panel.style.display = "block";
+    document.getElementById("state-vars").innerHTML = keys.map(k => {
+      const v = currentState[k];
+      let cls = "v-num";
+      if (v === true) cls = "v-true";
+      if (v === false) cls = "v-false";
+      return `<div class="state-var">${k}: <span class="${cls}">${v}</span></div>`;
+    }).join("");
+  }
+
+  function toggleState() {
+    const vars = document.getElementById("state-vars");
+    stateVisible = !stateVisible;
+    vars.style.display = stateVisible ? "" : "none";
+    document.querySelector(".state-toggle").textContent = stateVisible ? "hide" : "show";
+  }
+
+  function evalCond(cond, state) {
+    if (!cond?.trim()) return true;
+    try {
+      for (const op of [">=","<=","!=","==",">","<"]) {
+        if (cond.includes(op)) {
+          const [l, r] = cond.split(op);
+          const cur = state[l.trim()];
+          if (cur === undefined) return false;
+          const raw = r.trim();
+          const cmp = raw === "true" ? true : raw === "false" ? false : isNaN(raw) ? raw : Number(raw);
+          if (op === "==") return cur == cmp;
+          if (op === "!=") return cur != cmp;
+          if (op === ">=") return cur >= cmp;
+          if (op === "<=") return cur <= cmp;
+          if (op === ">")  return cur > cmp;
+          if (op === "<")  return cur < cmp;
+        }
+      }
+    } catch(e) { return true; }
+    return true;
+  }
+</script>
+</body>
+</html>
