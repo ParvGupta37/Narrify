@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Narrify
 Dynamic Interactive Story Engine App
 =======
@@ -72,37 +71,6 @@ Open `frontend/index.html` directly in your browser (double-click or drag into b
 
 ---
 
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | /stories | List all stories |
-| POST | /stories | Create a story |
-| GET | /stories/:id/start | Get starting scene |
-| POST | /stories/:id/set_start | Set the starting scene |
-| GET | /stories/:id/scenes | List all scenes in a story |
-| POST | /scenes | Create a scene |
-| GET | /scenes/:id | Get scene + choices |
-| POST | /choices | Create a choice |
-| GET | /choices/:id/select | Follow a choice → get next scene |
-| POST | /progress | Save player progress |
-| GET | /progress/:session/:story | Load saved progress |
-
----
-
-## Database Tables
-
-- **stories** — title, description, start_scene_id
-- **scenes** — story_id, narrative, is_ending
-- **choices** — scene_id, label, next_scene_id
-- **player_progress** — story_id, current_scene_id, session_key
-
----
-
 ## Notes
 
 - No authentication — sessions use a random key stored in `sessionStorage`
-- No ORM — uses raw SQL via Python's built-in `sqlite3`
-- No build step — open the HTML files directly in the browser
-- CORS is enabled so the frontend can talk to the local Flask server
->>>>>>> e311c24 (Initial commit — Narrify interactive story engine)
